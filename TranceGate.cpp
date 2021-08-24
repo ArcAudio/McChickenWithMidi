@@ -17,35 +17,13 @@ float buf[9600];
 DaisyPatch hw;
 
 bool gate;
-bool audioGate;
-
 // Persistent filtered Value for smooth delay time changes.
 float smooth_time;
 float nn;
 
-TranceGate::Envelope env;
-Comb              flt;
-PitchShifter      pitchShift;
 void UpdateControls()
 {
     hw.ProcessAnalogControls();
-	//hw.ProcessDigitalControls();
-	env.SetRise(hw.GetKnobValue(DaisyPatch::CTRL_5)); // value expected to be from 0.f to 1.f
-    env.SetFall(hw.GetKnobValue(DaisyPatch::CTRL_6)); // idk what this is gonna output 0-4095?
-	flt.SetRevTime(hw.GetKnobValue(DaisyPatch::CTRL_3));
-	flt.SetFreq(hw.GetKnobValue(DaisyPatch::CTRL_4) * 400 + 40);
-	pitchShift.SetDelSize(hw.GetKnobValue(DaisyPatch::CTRL_1) * 500 + 25); //hopefully milliseconds!!
-	pitchShift.SetTransposition(hw.GetKnobValue(DaisyPatch::CTRL_2) * 12);//hopefully semitones
-
-	// gain = hw.GetKnobValue(DaisyPatch::CTRL_1);
-	// threshold = hw.GetKnobValue(DaisyPatch::CTRL_4);
-	
-	gate = hw.gate_input[DaisyPatch::GATE_IN_1].Trig();
-
-	if(gate)
-    {
-        env.Trigger();
-    }
 }
 
 void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, size_t size)
@@ -53,7 +31,7 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 	UpdateControls();
 	float output;
 	float sig;
-    float trig, decay;       // Pluck Vars
+    	float trig, decay;       // Pluck Vars
 
     // Set MIDI Note for new Pluck notes.
     //nn = 24.0f + hw.GetKnobValue(DaisyPatch::CTRL_1) * 60.0f;
@@ -70,15 +48,10 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 		 {
 		    trig = in[0][i];
 		 }
-		 // do something here when num voices is more than 1
+		 // do something here when num voices is more than 1??
 		 
          sig = synth.Process(trig, nn);
-		
-		 output = env.Process() * in[0][i];
-		 output = pitchShift.Process(output);
-		 output = 0.5 * flt.Process(output);
-		 out[0][i] = sig;
-		 out[1][i] = env.Process() * in[1][i]; 
+	 out[0][i] = sig;
 	}
 	
 }
@@ -95,9 +68,7 @@ void HandleMidiMessage(MidiEvent m)
             if(m.data[1] != 0)
             {
                 p = m.AsNoteOn();
-                //osc.SetFreq(mtof(p.note));
-				nn = p.note;
-                //osc.SetAmp((p.velocity / 127.0f));
+		nn = p.note;
             }
 
             // if(m.data[1] == 0)
@@ -135,16 +106,6 @@ int main(void)
 	hw.Init();
 	sampleRate = hw.AudioSampleRate();
 
-	env.Init(sampleRate);
-	    for(int i = 0; i < 9600; i++)
-    {
-        buf[i] = 0.0f;
-    }
-
-    // initialize Comb object
-    flt.Init(sampleRate, buf, 9600);
-    flt.SetFreq(500);
-	pitchShift.Init(sampleRate);
 	synth.Init(sampleRate);
 	hw.midi.StartReceive();
 	hw.StartAdc();
